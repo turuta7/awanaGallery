@@ -156,21 +156,29 @@ export async function periodRange(period, anchor = today()) {
 
 const inRange = (q, range) => range && q.whereRaw(`${DAY} between ?::date and ?::date`, [range.from, range.to]);
 
-// by = 'likes' — за лайками, 'drawings' — за кількістю малюнків
+// by: 'likes' — сума лайків усіх малюнків, 'best' — лайки найкращого малюнка, 'drawings' — кількість малюнків
+export const RATING_BY = ['likes', 'best', 'drawings'];
+
 export function childrenRating({ range, by = 'likes' }) {
-  const other = by === 'likes' ? 'drawings' : 'likes';
-  return db('drawings as d')
-    .join('children as c', 'c.id', 'd.child_id')
+  const perDrawing = db('drawings as d')
     .leftJoin('likes as l', 'l.drawing_id', 'd.id')
+    .select('d.child_id', db.raw('count(l.drawing_id)::int as likes'))
+    .modify((q) => inRange(q, range))
+    .groupBy('d.id');
+
+  const ties = RATING_BY.filter((c) => c !== by);
+  return db
+    .from(perDrawing.as('p'))
+    .join('children as c', 'c.id', 'p.child_id')
     .select(
       'c.id',
       'c.name',
-      db.raw('count(distinct d.id)::int as drawings'),
-      db.raw('count(l.drawing_id)::int as likes')
+      db.raw('count(*)::int as drawings'),
+      db.raw('sum(p.likes)::int as likes'),
+      db.raw('max(p.likes)::int as best')
     )
-    .modify((q) => inRange(q, range))
     .groupBy('c.id')
-    .orderBy([{ column: by, order: 'desc' }, { column: other, order: 'desc' }, { column: 'c.name' }]);
+    .orderBy([by, ...ties].map((column) => ({ column, order: 'desc' })).concat({ column: 'c.name' }));
 }
 
 export function topDrawings({ range, visitorId, limit = 10 }) {

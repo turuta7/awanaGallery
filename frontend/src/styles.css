@@ -446,7 +446,7 @@ main {
 
 .ranking li {
   display: grid;
-  grid-template-columns: 40px 1fr auto auto;
+  grid-template-columns: 40px 1fr auto auto auto;
   align-items: center;
   gap: 12px;
   padding: 10px 16px;

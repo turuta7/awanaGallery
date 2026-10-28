@@ -14,9 +14,16 @@ const PERIODS = [
   ['all', 'Весь час'],
 ];
 
-const href = (period, day, by) => `#/rating/${period}${day ? `/${day}` : ''}${by === 'drawings' ? '?by=drawings' : ''}`;
+// За чим сортувати дітей: сума лайків, лайки найкращого малюнка або кількість малюнків
+const SORTS = [
+  ['likes', '❤️ Усі лайки', 'Сума лайків на всіх малюнках'],
+  ['best', '⭐ Один малюнок', 'Лайки найкращого малюнка'],
+  ['drawings', '🖼 Малюнки', 'Кількість малюнків'],
+];
 
-// period: day | week | month | year | all; day — дата всередині періоду; by: likes | drawings
+const href = (period, day, by) => `#/rating/${period}${day ? `/${day}` : ''}${by !== 'likes' ? `?by=${by}` : ''}`;
+
+// period: day | week | month | year | all; day — дата всередині періоду; by: likes | best | drawings
 export default function RatingPage({ period, day: dayParam, by }) {
   // Дні вантажимо один раз: для «День» без дати беремо останній день з малюнками
   const [days, , daysState] = useLoad(() => api.days(), []);
@@ -40,8 +47,9 @@ export default function RatingPage({ period, day: dayParam, by }) {
           ))}
         </div>
         <div className="seg">
-          <a className={by !== 'drawings' ? 'active' : ''} href={href(period, dayParam, 'likes')}>❤️ Лайки</a>
-          <a className={by === 'drawings' ? 'active' : ''} href={href(period, dayParam, 'drawings')}>🖼 Малюнки</a>
+          {SORTS.map(([b, label, title]) => (
+            <a key={b} className={by === b ? 'active' : ''} href={href(period, dayParam, b)} title={title}>{label}</a>
+          ))}
         </div>
       </div>
 
@@ -69,8 +77,9 @@ export default function RatingPage({ period, day: dayParam, by }) {
               <li key={c.id}>
                 <span className="place">{MEDALS[i] ?? i + 1}</span>
                 <a href={`#/kids/${c.id}`} className="kid-name">{c.name}</a>
-                <span className={by === 'drawings' ? 'metric main' : 'metric'}>🖼 {c.drawings}</span>
-                <span className={by !== 'drawings' ? 'metric main' : 'metric'}>❤️ {c.likes}</span>
+                <span className={by === 'drawings' ? 'metric main' : 'metric'} title="Малюнків">🖼 {c.drawings}</span>
+                <span className={by === 'best' ? 'metric main' : 'metric'} title="Лайків у найкращого малюнка">⭐ {c.best}</span>
+                <span className={by === 'likes' ? 'metric main' : 'metric'} title="Усього лайків">❤️ {c.likes}</span>
               </li>
             ))}
           </ol>

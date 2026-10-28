@@ -12,7 +12,7 @@ function page(route) {
   if ((m = route.match(/^\/kids\/(\d+)$/))) return ['kids', <KidPage key={m[1]} id={Number(m[1])} />];
   // #/rating/<період>/<дата>?by=drawings
   if ((m = route.match(/^\/rating(?:\/(day|week|month|year|all))?(?:\/(\d{4}-\d{2}-\d{2}))?(?:\?by=(\w+))?$/))) {
-    return ['rating', <RatingPage period={m[1] || 'all'} day={m[2]} by={m[3] === 'drawings' ? 'drawings' : 'likes'} />];
+    return ['rating', <RatingPage period={m[1] || 'all'} day={m[2]} by={['best', 'drawings'].includes(m[3]) ? m[3] : 'likes'} />];
   }
   return ['gallery', <GalleryPage />];
 }

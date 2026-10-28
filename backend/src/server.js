@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import express from 'express';
 import sharp from 'sharp';
-import { childrenRating, listChildren, listDays, listDrawings, periodRange, PERIODS, setLike, topDrawings } from './db.js';
+import { childrenRating, listChildren, listDays, listDrawings, periodRange, PERIODS, RATING_BY, setLike, topDrawings } from './db.js';
 import { THUMBS_DIR, UPLOADS_DIR } from './bot.js';
 
 const THUMB_WIDTH = 600;
@@ -66,11 +66,11 @@ export function createServer() {
   });
 
   // period: day | week | month | year | all; day — будь-яка дата всередині періоду (за замовчуванням сьогодні)
-  // by: likes | drawings — за чим сортувати дітей
+  // by: likes | best | drawings — за чим сортувати дітей
   app.get('/api/rating', async (req, res) => {
     const day = dayOf(req);
     const period = PERIODS.includes(req.query.period) ? req.query.period : day ? 'day' : 'all';
-    const by = req.query.by === 'drawings' ? 'drawings' : 'likes';
+    const by = RATING_BY.includes(req.query.by) ? req.query.by : 'likes';
     const range = await periodRange(period, day);
     const [children, drawings] = await Promise.all([
       childrenRating({ range, by }),
