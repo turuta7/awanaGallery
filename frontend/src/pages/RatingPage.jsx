@@ -27,6 +27,12 @@ const DRAWINGS_TITLE = {
   drawings: 'Усі малюнки за період',
 };
 
+// У режимі «Один малюнок» однакові лайки найкращого малюнка = спільне місце (1, 1, 2…)
+function places(children, by) {
+  let place = 0;
+  return children.map((c, i) => (by !== 'best' || i === 0 || c.best !== children[i - 1].best ? ++place : place));
+}
+
 const href = (period, day, by) => `#/rating/${period}${day ? `/${day}` : ''}${by !== 'likes' ? `?by=${by}` : ''}`;
 
 // period: day | week | month | year | all; day — дата всередині періоду; by: likes | best | drawings
@@ -41,6 +47,7 @@ export default function RatingPage({ period, day: dayParam, by }) {
     [period, day, by, waiting]
   );
   const setDrawings = (fn) => setRating((r) => r && { ...r, drawings: fn(r.drawings) });
+  const place = rating ? places(rating.children, rating.by) : [];
 
   return (
     <>
@@ -81,7 +88,7 @@ export default function RatingPage({ period, day: dayParam, by }) {
           <ol className="ranking">
             {rating.children.map((c, i) => (
               <li key={c.id}>
-                <span className="place">{MEDALS[i] ?? i + 1}</span>
+                <span className="place">{MEDALS[place[i] - 1] ?? place[i]}</span>
                 <a href={`#/kids/${c.id}`} className="kid-name">{c.name}</a>
                 <span className={by === 'drawings' ? 'metric main' : 'metric'} title="Малюнків">🖼 {c.drawings}</span>
                 <span className={by === 'best' ? 'metric main' : 'metric'} title="Лайків у найкращого малюнка">⭐ {c.best}</span>
