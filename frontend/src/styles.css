@@ -1,0 +1,457 @@
+:root {
+  --bg: #fff8f0;
+  --surface: #ffffff;
+  --fg: #2a2238;
+  --muted: #7a7088;
+  --accent: #ff6b4a;
+  --accent-2: #4a7dff;
+  --border: #f0e4d8;
+  --chip: #fff0e3;
+  --shadow: 0 2px 12px rgba(80, 40, 20, 0.08);
+  --radius: 16px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17141c;
+    --surface: #221e29;
+    --fg: #f1ecf6;
+    --muted: #a49bb0;
+    --accent: #ff8466;
+    --accent-2: #7da0ff;
+    --border: #322c3b;
+    --chip: #2c2634;
+    --shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+a {
+  color: inherit;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+h3 {
+  margin: 28px 0 12px;
+  font-size: 1.05rem;
+  text-transform: capitalize;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 48px 0;
+}
+
+/* ---------- Шапка ---------- */
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px max(16px, calc((100% - 1100px) / 2));
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+
+.logo {
+  font-weight: 800;
+  font-size: 1.2rem;
+  text-decoration: none;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tabs a {
+  padding: 6px 12px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.tabs a.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px 16px 64px;
+}
+
+/* ---------- Дні, перемикачі ---------- */
+
+.days {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0 12px;
+  margin-bottom: 8px;
+  scrollbar-width: thin;
+}
+
+.chip {
+  flex: none;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--chip);
+  text-decoration: none;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.chip.active {
+  background: var(--accent-2);
+  color: #fff;
+}
+
+.chip .count {
+  opacity: 0.7;
+  font-size: 0.8rem;
+  margin-left: 2px;
+}
+
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.section-head h2::first-letter {
+  text-transform: uppercase;
+}
+
+.seg {
+  display: inline-flex;
+  background: var(--chip);
+  border-radius: 999px;
+  padding: 3px;
+}
+
+.seg > * {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 4px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.seg > .active {
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-weight: 600;
+}
+
+.link {
+  display: inline-block;
+  margin: 4px 0 16px;
+  color: var(--accent-2);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* ---------- Сітка малюнків ---------- */
+
+.grid {
+  columns: 4 240px;
+  column-gap: 14px;
+}
+
+.card {
+  break-inside: avoid;
+  margin-bottom: 14px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  cursor: zoom-in;
+  transition: transform 0.15s;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+}
+
+.thumb {
+  background: var(--chip);
+}
+
+.thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.card-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.card-meta strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.like {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.like:active {
+  transform: scale(0.9);
+}
+
+.like.liked {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+
+.like.big {
+  font-size: 1.1rem;
+  padding: 6px 16px;
+}
+
+/* ---------- Перегляд малюнка ---------- */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 8, 14, 0.9);
+  padding: 16px;
+}
+
+.lightbox figure {
+  margin: 0;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.lightbox img {
+  max-width: 100%;
+  max-height: calc(100vh - 120px);
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+.lightbox figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #fff;
+}
+
+.lightbox figcaption a {
+  font-weight: 700;
+}
+
+.lightbox figcaption .muted {
+  color: #c9c2d3;
+}
+
+.lb-close,
+.lb-nav {
+  position: absolute;
+  border: 0;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 1.6rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.lb-close {
+  top: 12px;
+  right: 12px;
+  font-size: 1.1rem;
+}
+
+.lb-nav {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.lb-prev {
+  left: 8px;
+}
+
+.lb-next {
+  right: 8px;
+}
+
+/* ---------- Діти ---------- */
+
+.kids {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.kid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 20px 12px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  text-decoration: none;
+  text-align: center;
+}
+
+.kid-name {
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #ffb347);
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.avatar.big {
+  width: 72px;
+  height: 72px;
+  font-size: 2rem;
+}
+
+.kid-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 8px 0 8px;
+}
+
+/* ---------- Рейтинг ---------- */
+
+.ranking {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ranking li {
+  display: grid;
+  grid-template-columns: 40px 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.place {
+  font-size: 1.3rem;
+  text-align: center;
+  font-weight: 700;
+}
+
+@media (max-width: 520px) {
+  .grid {
+    columns: 2;
+    column-gap: 10px;
+  }
+
+  .card {
+    margin-bottom: 10px;
+  }
+
+  .tabs a {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+  }
+
+  .ranking li {
+    grid-template-columns: 32px 1fr auto;
+  }
+
+  .ranking li .muted {
+    display: none;
+  }
+}

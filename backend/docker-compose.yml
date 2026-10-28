@@ -1,0 +1,16 @@
+# Лише для локальної розробки: PostgreSQL на порту 5434.
+# На пристрої база окрема — просто впиши її адресу в DATABASE_URL.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: awana
+      POSTGRES_PASSWORD: awana
+      POSTGRES_DB: awana
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
