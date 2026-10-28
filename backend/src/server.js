@@ -74,7 +74,7 @@ export function createServer() {
     const range = await periodRange(period, day);
     const [children, drawings] = await Promise.all([
       childrenRating({ range, by }),
-      topDrawings({ range, visitorId: visitorOf(req) }),
+      topDrawings({ range, visitorId: visitorOf(req), by }),
     ]);
     res.json({ period, by, from: range?.from ?? null, to: range?.to ?? null, children, drawings: drawings.map(withUrls) });
   });

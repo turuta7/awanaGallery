@@ -21,6 +21,12 @@ const SORTS = [
   ['drawings', '🖼 Малюнки', 'Кількість малюнків'],
 ];
 
+const DRAWINGS_TITLE = {
+  likes: 'Найпопулярніші малюнки',
+  best: 'Найкращий малюнок кожної дитини',
+  drawings: 'Усі малюнки за період',
+};
+
 const href = (period, day, by) => `#/rating/${period}${day ? `/${day}` : ''}${by !== 'likes' ? `?by=${by}` : ''}`;
 
 // period: day | week | month | year | all; day — дата всередині періоду; by: likes | best | drawings
@@ -86,7 +92,7 @@ export default function RatingPage({ period, day: dayParam, by }) {
           {!rating.children.length && <p className="empty">За цей період малюнків немає</p>}
           {rating.children.length > 0 && (
             <>
-              <h3>Найпопулярніші малюнки</h3>
+              <h3>{DRAWINGS_TITLE[rating.by]}</h3>
               <DrawingGrid
                 drawings={rating.drawings}
                 setDrawings={setDrawings}

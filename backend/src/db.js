@@ -181,12 +181,34 @@ export function childrenRating({ range, by = 'likes' }) {
     .orderBy([by, ...ties].map((column) => ({ column, order: 'desc' })).concat({ column: 'c.name' }));
 }
 
-export function topDrawings({ range, visitorId, limit = 10 }) {
-  return drawingsQuery(visitorId)
+// Малюнки під рейтингом — залежать від того, за чим сортують дітей:
+//   likes    — топ-10 за лайками
+//   best     — найкращий малюнок кожної дитини
+//   drawings — усі малюнки періоду, згруповані за дітьми в порядку рейтингу
+export function topDrawings({ range, visitorId, by = 'likes' }) {
+  const ranked = drawingsQuery(visitorId)
     .modify((q) => inRange(q, range))
-    .havingRaw('count(l.drawing_id) > 0')
-    .orderBy([{ column: 'likes', order: 'desc' }, { column: 'd.id', order: 'desc' }])
-    .limit(limit);
+    .select(
+      db.raw('row_number() over (partition by d.child_id order by count(l.drawing_id) desc, d.id desc)::int as kid_place'),
+      db.raw('count(*) over (partition by d.child_id)::int as kid_drawings'),
+      db.raw('sum(count(l.drawing_id)) over (partition by d.child_id)::int as kid_likes')
+    );
+  const q = db.from(ranked.as('t')).select('*');
+
+  if (by === 'best') {
+    return q
+      .where('kid_place', 1)
+      .orderBy([{ column: 'likes', order: 'desc' }, { column: 'kid_likes', order: 'desc' }, { column: 'kid_drawings', order: 'desc' }, 'child_name']);
+  }
+  if (by === 'drawings') {
+    return q
+      .orderBy([{ column: 'kid_drawings', order: 'desc' }, { column: 'kid_likes', order: 'desc' }, 'child_name', { column: 'id', order: 'desc' }])
+      .limit(60);
+  }
+  return q
+    .where('likes', '>', 0)
+    .orderBy([{ column: 'likes', order: 'desc' }, { column: 'id', order: 'desc' }])
+    .limit(10);
 }
 
 // ---------- Користувачі бота ----------
