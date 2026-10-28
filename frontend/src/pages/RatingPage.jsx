@@ -1,4 +1,4 @@
-import { api, fmtDay } from '../api.js';
+import { addDays, api, fmtPeriod, today } from '../api.js';
 import { useLoad } from '../hooks.js';
 import DayPicker from '../components/DayPicker.jsx';
 import DrawingGrid from '../components/DrawingGrid.jsx';
@@ -6,57 +6,87 @@ import Status from '../components/Status.jsx';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
-// day === undefined — за весь час; 'day' без дати — за останній день з малюнками
-export default function RatingPage({ day: dayParam, period }) {
-  const [days, , daysState] = useLoad(() => api.days(), []);
-  const day = period === 'day' ? dayParam || days?.[0]?.day : undefined;
-  const ready = period === 'all' || days;
+const PERIODS = [
+  ['day', 'День'],
+  ['week', 'Тиждень'],
+  ['month', 'Місяць'],
+  ['year', 'Рік'],
+  ['all', 'Весь час'],
+];
+
+const href = (period, day, by) => `#/rating/${period}${day ? `/${day}` : ''}${by === 'drawings' ? '?by=drawings' : ''}`;
+
+// period: day | week | month | year | all; day — дата всередині періоду; by: likes | drawings
+export default function RatingPage({ period, day: dayParam, by }) {
+  // Для «День» без дати беремо останній день з малюнками
+  const [days, , daysState] = useLoad(() => (period === 'day' ? api.days() : Promise.resolve(null)), [period]);
+  const day = period === 'day' ? dayParam || days?.[0]?.day : dayParam;
+  const waiting = period === 'day' && !day;
   const [rating, setRating, state] = useLoad(
-    () => (ready && (period === 'all' || day) ? api.rating(day) : Promise.resolve(null)),
-    [period, day, !!ready]
+    () => (waiting ? Promise.resolve(null) : api.rating({ period, day, by })),
+    [period, day, by, waiting]
   );
   const setDrawings = (fn) => setRating((r) => r && { ...r, drawings: fn(r.drawings) });
 
   return (
     <>
-      <div className="section-head">
-        <h2>🏆 Рейтинг</h2>
+      <h2>🏆 Рейтинг</h2>
+
+      <div className="rating-controls">
         <div className="seg">
-          <a className={period === 'day' ? 'active' : ''} href="#/rating/day">За день</a>
-          <a className={period === 'all' ? 'active' : ''} href="#/rating">За весь час</a>
+          {PERIODS.map(([p, label]) => (
+            <a key={p} className={period === p ? 'active' : ''} href={href(p, null, by)}>{label}</a>
+          ))}
+        </div>
+        <div className="seg">
+          <a className={by !== 'drawings' ? 'active' : ''} href={href(period, dayParam, 'likes')}>❤️ Лайки</a>
+          <a className={by === 'drawings' ? 'active' : ''} href={href(period, dayParam, 'drawings')}>🖼 Малюнки</a>
         </div>
       </div>
 
+      {period === 'day' && days?.length > 0 && <DayPicker days={days} value={day} hrefFor={(d) => href('day', d, by)} />}
       {period === 'day' && days && !days.length && <p className="empty">Малюнків ще немає</p>}
-      {period === 'day' && days?.length > 0 && <DayPicker days={days} value={day} hrefFor={(d) => `#/rating/${d}`} />}
       {period === 'day' && !days && <Status {...daysState} />}
+
+      {rating && ['week', 'month', 'year'].includes(period) && (
+        <div className="period-nav">
+          <a href={href(period, addDays(rating.from, -1), by)} aria-label="Попередній">‹</a>
+          <strong>{fmtPeriod(period, rating.from, rating.to)}</strong>
+          {rating.to < today() ? (
+            <a href={href(period, addDays(rating.to, 1), by)} aria-label="Наступний">›</a>
+          ) : (
+            <span className="disabled">›</span>
+          )}
+        </div>
+      )}
 
       {rating ? (
         <>
-          <p className="muted">
-            {day ? `Малюнки за ${fmtDay(day, { day: 'numeric', month: 'long', year: 'numeric' })}` : 'Усі малюнки за весь час'}
-          </p>
           <ol className="ranking">
             {rating.children.map((c, i) => (
               <li key={c.id}>
                 <span className="place">{MEDALS[i] ?? i + 1}</span>
                 <a href={`#/kids/${c.id}`} className="kid-name">{c.name}</a>
-                <span className="muted">🖼 {c.drawings}</span>
-                <strong>❤️ {c.likes}</strong>
+                <span className={by === 'drawings' ? 'metric main' : 'metric'}>🖼 {c.drawings}</span>
+                <span className={by !== 'drawings' ? 'metric main' : 'metric'}>❤️ {c.likes}</span>
               </li>
             ))}
           </ol>
-          {!rating.children.length && <p className="empty">У цей день малюнків немає</p>}
-          <h3>Найпопулярніші малюнки</h3>
-          <DrawingGrid
-            drawings={rating.drawings}
-            setDrawings={setDrawings}
-            showDay={!day}
-            empty="Лайків ще немає — будь першим ❤️"
-          />
+          {!rating.children.length && <p className="empty">За цей період малюнків немає</p>}
+          {rating.children.length > 0 && (
+            <>
+              <h3>Найпопулярніші малюнки</h3>
+              <DrawingGrid
+                drawings={rating.drawings}
+                setDrawings={setDrawings}
+                showDay={period !== 'day'}
+                empty="Лайків ще немає — будь першим ❤️"
+              />
+            </>
+          )}
         </>
       ) : (
-        <Status {...state} />
+        !waiting && <Status {...state} />
       )}
     </>
   );

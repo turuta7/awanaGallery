@@ -137,9 +137,28 @@ export async function setLike(drawingId, visitorId, liked) {
 }
 
 // ---------- Рейтинг ----------
-// day задано — рахуються лише малюнки, намальовані цього дня; без day — за весь час
+// Рахуються малюнки, намальовані в межах періоду [from, to]; range = null — за весь час
 
-export function childrenRating({ day }) {
+export const PERIODS = ['day', 'week', 'month', 'year', 'all'];
+
+export const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: TZ });
+
+// День/тиждень (з понеділка)/місяць/рік, у який потрапляє дата anchor
+export async function periodRange(period, anchor = today()) {
+  if (period === 'all') return null;
+  const { rows } = await db.raw(
+    `select to_char(date_trunc(:p, :a::date), 'YYYY-MM-DD') as "from",
+            to_char(date_trunc(:p, :a::date) + ('1 ' || :p)::interval - interval '1 day', 'YYYY-MM-DD') as "to"`,
+    { p: period, a: anchor }
+  );
+  return rows[0];
+}
+
+const inRange = (q, range) => range && q.whereRaw(`${DAY} between ?::date and ?::date`, [range.from, range.to]);
+
+// by = 'likes' — за лайками, 'drawings' — за кількістю малюнків
+export function childrenRating({ range, by = 'likes' }) {
+  const other = by === 'likes' ? 'drawings' : 'likes';
   return db('drawings as d')
     .join('children as c', 'c.id', 'd.child_id')
     .leftJoin('likes as l', 'l.drawing_id', 'd.id')
@@ -149,14 +168,14 @@ export function childrenRating({ day }) {
       db.raw('count(distinct d.id)::int as drawings'),
       db.raw('count(l.drawing_id)::int as likes')
     )
-    .modify((q) => day && q.whereRaw(`${DAY} = ?::date`, [day]))
+    .modify((q) => inRange(q, range))
     .groupBy('c.id')
-    .orderBy([{ column: 'likes', order: 'desc' }, { column: 'c.name' }]);
+    .orderBy([{ column: by, order: 'desc' }, { column: other, order: 'desc' }, { column: 'c.name' }]);
 }
 
-export function topDrawings({ day, visitorId, limit = 10 }) {
+export function topDrawings({ range, visitorId, limit = 10 }) {
   return drawingsQuery(visitorId)
-    .modify((q) => day && q.whereRaw(`${DAY} = ?::date`, [day]))
+    .modify((q) => inRange(q, range))
     .havingRaw('count(l.drawing_id) > 0')
     .orderBy([{ column: 'likes', order: 'desc' }, { column: 'd.id', order: 'desc' }])
     .limit(limit);

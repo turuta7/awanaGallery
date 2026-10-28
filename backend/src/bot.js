@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import sharp from 'sharp';
 import { Markup, Telegraf } from 'telegraf';
 import {
   addDrawing,
@@ -34,6 +35,9 @@ const siteUrl = () => {
   const url = process.env.PUBLIC_URL || '';
   return /^https?:\/\/(?!localhost|127\.)/.test(url) ? url : '';
 };
+
+// Розміри з урахуванням EXIF-повороту (фото з телефона часто лежать "боком")
+const orientedSize = (m) => (m.orientation >= 5 ? { width: m.height, height: m.width } : { width: m.width, height: m.height });
 
 export async function removeFiles(filenames) {
   await Promise.all(
@@ -137,6 +141,22 @@ async function sendDrawingsPage(ctx, childId, page) {
 
 // ---------- Збереження фото ----------
 
+// Сайт показує JPEG/PNG/WebP — решту (GIF, BMP, TIFF, AVIF…) перетворюємо в JPEG
+const WEB_EXT = /^\.(jpe?g|png|webp)$/;
+
+async function toJpeg(filename) {
+  const src = path.join(UPLOADS_DIR, filename);
+  const out = filename.replace(/\.[^.]*$/, '') + '.jpg';
+  try {
+    await sharp(src).rotate().flatten({ background: '#fff' }).jpeg({ quality: 90 }).toFile(path.join(UPLOADS_DIR, out));
+    return out;
+  } catch {
+    return null;
+  } finally {
+    await fs.rm(src, { force: true });
+  }
+}
+
 async function saveDrawing(ctx, { fileId, fileUniqueId, ext, width, height }) {
   const user = await getBotUser(ctx.from.id);
   const kid = user?.current_child_id && (await getChild(user.current_child_id));
@@ -145,8 +165,20 @@ async function saveDrawing(ctx, { fileId, fileUniqueId, ext, width, height }) {
     return ctx.reply('Спершу обери дитину, якій додати малюнок 👇', kb);
   }
 
-  const filename = `${fileUniqueId}${ext}`;
+  let filename = `${fileUniqueId}${ext}`;
   await download(ctx, fileId, filename);
+  if (!WEB_EXT.test(ext)) {
+    filename = await toJpeg(filename);
+    if (!filename) return ctx.reply('Не вдалося прочитати це зображення 😕 Надішли його звичайним фото (не файлом).');
+  }
+  if (!width || !height) {
+    try {
+      ({ width, height } = orientedSize(await sharp(path.join(UPLOADS_DIR, filename)).metadata()));
+    } catch {
+      await removeFiles([filename]);
+      return ctx.reply('Не вдалося прочитати це зображення 😕 Надішли його звичайним фото (не файлом).');
+    }
+  }
   const row = await addDrawing({ childId: kid.id, fileUniqueId, fileId, filename, width, height });
   if (!row) return ctx.reply('Цей малюнок уже є в галереї 🙂');
 
@@ -283,11 +315,15 @@ export function createBot(token) {
     });
   });
 
-  // Фото, надіслане "як файл" (без стиснення)
+  // Фото, надіслане "як файл" (без стиснення) — будь-яке зображення
   bot.on('document', (ctx) => {
     const d = ctx.message.document;
-    if (!/^image\/(jpeg|png|webp)$/.test(d.mime_type || '')) return ctx.reply('Надішли, будь ласка, зображення JPEG, PNG або WebP.');
-    const ext = d.mime_type === 'image/jpeg' ? '.jpg' : `.${d.mime_type.split('/')[1]}`;
+    const fileExt = path.extname(d.file_name || '').toLowerCase();
+    if (!d.mime_type?.startsWith('image/') && !/^\.(jpe?g|png|webp|gif|bmp|tiff?|avif|heic|heif)$/.test(fileExt)) {
+      return ctx.reply('Надішли, будь ласка, зображення.');
+    }
+    if (d.file_size > 20 * 1024 * 1024) return ctx.reply('Файл завеликий (Telegram дає ботам до 20 МБ). Надішли звичайним фото.');
+    const ext = /^\.[a-z0-9]{2,5}$/.test(fileExt) ? fileExt.replace('.jpeg', '.jpg') : `.${d.mime_type.split('/')[1]}`;
     return saveDrawing(ctx, { fileId: d.file_id, fileUniqueId: d.file_unique_id, ext });
   });
 

@@ -9,6 +9,7 @@
   --chip: #fff0e3;
   --shadow: 0 2px 12px rgba(80, 40, 20, 0.08);
   --radius: 16px;
+  --frame: linear-gradient(135deg, #6b3e18, #b57a3e 20%, #8b5a2b 45%, #c48a4a 70%, #6b3e18);
   color-scheme: light;
 }
 
@@ -192,16 +193,16 @@ main {
 
 /* ---------- Сітка малюнків ---------- */
 
+/* Рівна сітка: усі картки однакові, малюнок вписується повністю (без обрізання) */
 .grid {
-  columns: 4 240px;
-  column-gap: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
 }
 
 .card {
-  break-inside: avoid;
-  margin-bottom: 14px;
   background: var(--surface);
-  border-radius: var(--radius);
+  border-radius: 6px;
   box-shadow: var(--shadow);
   overflow: hidden;
   cursor: zoom-in;
@@ -212,15 +213,41 @@ main {
   transform: translateY(-2px);
 }
 
+/* Рамка картини: дерев'яний багет + біле паспарту */
 .thumb {
-  background: var(--chip);
+  aspect-ratio: 1;
+  padding: 12px;
+  background: var(--frame);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 4px rgba(255, 225, 180, 0.25),
+    inset 2px 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* Порожні поля навколо малюнка заповнює розмита копія того самого малюнка */
+.thumb-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  outline: 1px solid rgba(0, 0, 0, 0.35);
+}
+
+.thumb-inner::before {
+  content: '';
+  position: absolute;
+  inset: -20px;
+  background: var(--bg) center / cover;
+  filter: blur(14px) brightness(0.85) saturate(1.2);
 }
 
 .thumb img {
+  position: relative;
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
 }
 
 .card-foot {
@@ -299,8 +326,10 @@ main {
 .lightbox img {
   max-width: 100%;
   max-height: calc(100vh - 120px);
-  border-radius: 8px;
   object-fit: contain;
+  border: clamp(10px, 2.5vw, 22px) solid transparent;
+  border-image: var(--frame) 1;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
 }
 
 .lightbox figcaption {
@@ -432,14 +461,58 @@ main {
   font-weight: 700;
 }
 
+.rating-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 12px 0;
+}
+
+.rating-controls .seg {
+  flex-wrap: wrap;
+}
+
+.period-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 12px;
+  font-size: 1.05rem;
+}
+
+.period-nav a,
+.period-nav .disabled {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--chip);
+  text-decoration: none;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.period-nav .disabled {
+  opacity: 0.35;
+}
+
+.metric {
+  color: var(--muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.metric.main {
+  color: var(--fg);
+  font-weight: 700;
+  font-size: 1rem;
+}
+
 @media (max-width: 520px) {
   .grid {
-    columns: 2;
-    column-gap: 10px;
-  }
-
-  .card {
-    margin-bottom: 10px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
   }
 
   .tabs a {
@@ -451,7 +524,7 @@ main {
     grid-template-columns: 32px 1fr auto;
   }
 
-  .ranking li .muted {
+  .ranking li .metric:not(.main) {
     display: none;
   }
 }

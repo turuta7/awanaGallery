@@ -68,8 +68,10 @@ export default function DrawingGrid({ drawings, setDrawings, showChild = true, s
       <div className="grid">
         {drawings.map((d) => (
           <article key={d.id} className="card" onClick={() => setOpenId(d.id)}>
-            <div className="thumb" style={d.width && d.height ? { aspectRatio: `${d.width} / ${d.height}` } : undefined}>
-              <img src={imgUrl(d.thumb)} alt={`Малюнок: ${d.child_name}`} loading="lazy" />
+            <div className="thumb" style={{ '--bg': `url("${imgUrl(d.thumb)}")` }}>
+              <div className="thumb-inner">
+                <img src={imgUrl(d.thumb)} alt={`Малюнок: ${d.child_name}`} loading="lazy" />
+              </div>
             </div>
             <div className="card-foot">
               <div className="card-meta">

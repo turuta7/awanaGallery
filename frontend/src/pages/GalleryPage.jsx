@@ -26,7 +26,7 @@ export default function GalleryPage({ day: dayParam }) {
           <button className={sort === 'top' ? 'active' : ''} onClick={() => setSort('top')}>Популярні</button>
         </div>
       </div>
-      <a className="link" href={`#/rating/${day}`}>🏆 Рейтинг цього дня →</a>
+      <a className="link" href={`#/rating/day/${day}`}>🏆 Рейтинг цього дня →</a>
       {sorted ? <DrawingGrid drawings={sorted} setDrawings={setDrawings} /> : <Status {...state} />}
     </>
   );

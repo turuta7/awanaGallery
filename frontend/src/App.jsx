@@ -9,9 +9,10 @@ function page(route) {
   if ((m = route.match(/^\/day\/(\d{4}-\d{2}-\d{2})$/))) return ['gallery', <GalleryPage key={m[1]} day={m[1]} />];
   if (route === '/kids') return ['kids', <KidsPage />];
   if ((m = route.match(/^\/kids\/(\d+)$/))) return ['kids', <KidPage key={m[1]} id={Number(m[1])} />];
-  if (route === '/rating') return ['rating', <RatingPage period="all" />];
-  if (route === '/rating/day') return ['rating', <RatingPage period="day" />];
-  if ((m = route.match(/^\/rating\/(\d{4}-\d{2}-\d{2})$/))) return ['rating', <RatingPage period="day" day={m[1]} />];
+  // #/rating/<період>/<дата>?by=drawings
+  if ((m = route.match(/^\/rating(?:\/(day|week|month|year|all))?(?:\/(\d{4}-\d{2}-\d{2}))?(?:\?by=(\w+))?$/))) {
+    return ['rating', <RatingPage period={m[1] || 'all'} day={m[2]} by={m[3] === 'drawings' ? 'drawings' : 'likes'} />];
+  }
   return ['gallery', <GalleryPage />];
 }
 
