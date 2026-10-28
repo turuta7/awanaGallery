@@ -1,3 +1,4 @@
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { useHashRoute } from './hooks.js';
 import GalleryPage from './pages/GalleryPage.jsx';
 import KidPage from './pages/KidPage.jsx';
@@ -36,7 +37,9 @@ export default function App() {
           ))}
         </nav>
       </header>
-      <main>{content}</main>
+      <main>
+        <ErrorBoundary route={route}>{content}</ErrorBoundary>
+      </main>
     </>
   );
 }

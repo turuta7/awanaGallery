@@ -48,12 +48,13 @@ export default function RatingPage({ period, day: dayParam, by }) {
       {period === 'day' && days && !days.length && <p className="empty">Малюнків ще немає</p>}
       {period === 'day' && !days && <Status {...daysState} />}
 
-      {rating && ['week', 'month', 'year'].includes(period) && (
+      {/* Поки вантажиться новий період, rating ще від попереднього — тому беремо період з самих даних */}
+      {rating && ['week', 'month', 'year'].includes(rating.period) && (
         <div className="period-nav">
-          <a href={href(period, addDays(rating.from, -1), by)} aria-label="Попередній">‹</a>
-          <strong>{fmtPeriod(period, rating.from, rating.to)}</strong>
+          <a href={href(rating.period, addDays(rating.from, -1), by)} aria-label="Попередній">‹</a>
+          <strong>{fmtPeriod(rating.period, rating.from, rating.to)}</strong>
           {rating.to < today() ? (
-            <a href={href(period, addDays(rating.to, 1), by)} aria-label="Наступний">›</a>
+            <a href={href(rating.period, addDays(rating.to, 1), by)} aria-label="Наступний">›</a>
           ) : (
             <span className="disabled">›</span>
           )}
