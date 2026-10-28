@@ -18,12 +18,13 @@ const href = (period, day, by) => `#/rating/${period}${day ? `/${day}` : ''}${by
 
 // period: day | week | month | year | all; day — дата всередині періоду; by: likes | drawings
 export default function RatingPage({ period, day: dayParam, by }) {
-  // Для «День» без дати беремо останній день з малюнками
-  const [days, , daysState] = useLoad(() => (period === 'day' ? api.days() : Promise.resolve(null)), [period]);
+  // Дні вантажимо один раз: для «День» без дати беремо останній день з малюнками
+  const [days, , daysState] = useLoad(() => api.days(), []);
   const day = period === 'day' ? dayParam || days?.[0]?.day : dayParam;
   const waiting = period === 'day' && !day;
+  // Поки чекаємо на дні — не скидаємо рейтинг, щоб сторінка не блимала порожнечею
   const [rating, setRating, state] = useLoad(
-    () => (waiting ? Promise.resolve(null) : api.rating({ period, day, by })),
+    () => (waiting ? new Promise(() => {}) : api.rating({ period, day, by })),
     [period, day, by, waiting]
   );
   const setDrawings = (fn) => setRating((r) => r && { ...r, drawings: fn(r.drawings) });
