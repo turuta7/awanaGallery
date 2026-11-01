@@ -63,6 +63,14 @@ export async function addDrawing(p) {
   return row ?? null;
 }
 
+export const getDrawing = (id) => db('drawings').where({ id }).first();
+
+// Після повороту файл новий — file_id з Telegram уже не відповідає йому
+export async function replaceDrawingFile(id, { filename, width, height }) {
+  const [row] = await db('drawings').where({ id }).update({ filename, width, height, file_id: null }).returning('*');
+  return row ?? null;
+}
+
 export async function deleteDrawing(id) {
   const [row] = await db('drawings').where({ id }).del().returning('filename');
   return row ?? null;

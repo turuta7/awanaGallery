@@ -12,8 +12,10 @@ import {
   deleteDrawing,
   getBotUser,
   getChild,
+  getDrawing,
   listChildren,
   logoutBotUser,
+  replaceDrawingFile,
   setCurrentChild,
 } from './db.js';
 
@@ -124,7 +126,9 @@ async function sendDrawingsPage(ctx, childId, page) {
 
   const rows = [];
   for (let i = 0; i < drawings.length; i += 5) {
-    rows.push(drawings.slice(i, i + 5).map((d) => Markup.button.callback(`🗑 #${d.id}`, `deldraw:${d.id}:${childId}:${page}`)));
+    const part = drawings.slice(i, i + 5);
+    rows.push(part.map((d) => Markup.button.callback(`🗑 #${d.id}`, `deldraw:${d.id}:${childId}:${page}`)));
+    rows.push(part.map((d) => Markup.button.callback(`↻ #${d.id}`, `rot:${d.id}:90:${childId}:${page}`)));
   }
   const nav = [];
   if (page > 0) nav.push(Markup.button.callback('◀ Новіші', `draws:${childId}:${page - 1}`));
@@ -133,7 +137,7 @@ async function sendDrawingsPage(ctx, childId, page) {
   rows.push([Markup.button.callback(`◀ До ${kid.name}`, `kid:${childId}`)]);
 
   const info = await ctx.reply(
-    `🖼 ${kid.name}: сторінка ${page + 1} з ${pages} · всього ${total}\nНатисни 🗑 з номером, щоб видалити малюнок.`,
+    `🖼 ${kid.name}: сторінка ${page + 1} з ${pages} · всього ${total}\n🗑 — видалити малюнок, ↻ — повернути за годинниковою стрілкою.`,
     Markup.inlineKeyboard(rows)
   );
   shownPages.set(chatId, [...album.map((m) => m.message_id), info.message_id]);
@@ -156,6 +160,29 @@ async function toJpeg(filename) {
     await fs.rm(src, { force: true });
   }
 }
+
+// Поворот малюнка, який сфотографували боком (angle: 90 — за годинниковою, 270 — проти).
+// Пишемо новий файл з новим ім'ям — щоб браузери не показували старе прев'ю з кешу
+export async function rotateDrawing(id, angle) {
+  const d = await getDrawing(id);
+  if (!d) return null;
+  const filename = `${d.filename.replace(/(_r\d+)?\.[^.]*$/, '')}_r${Date.now()}.jpg`;
+  const info = await sharp(path.join(UPLOADS_DIR, d.filename))
+    .rotate() // спершу EXIF
+    .rotate(angle)
+    .jpeg({ quality: 90 })
+    .toFile(path.join(UPLOADS_DIR, filename));
+  const row = await replaceDrawingFile(id, { filename, width: info.width, height: info.height });
+  await removeFiles([d.filename]);
+  return row;
+}
+
+const drawingKeyboard = (id, kid) =>
+  Markup.inlineKeyboard([
+    [Markup.button.callback('↺ Повернути', `rot:${id}:270`), Markup.button.callback('Повернути ↻', `rot:${id}:90`)],
+    [Markup.button.callback('🗑 Видалити цей малюнок', `deldraw:${id}`)],
+    [Markup.button.callback(`👧 ${kid.name}`, `kid:${kid.id}`), Markup.button.callback('👧 Інша дитина', 'kids')],
+  ]);
 
 async function saveDrawing(ctx, { fileId, fileUniqueId, ext, width, height }) {
   const user = await getBotUser(ctx.from.id);
@@ -182,13 +209,7 @@ async function saveDrawing(ctx, { fileId, fileUniqueId, ext, width, height }) {
   const row = await addDrawing({ childId: kid.id, fileUniqueId, fileId, filename, width, height });
   if (!row) return ctx.reply('Цей малюнок уже є в галереї 🙂');
 
-  return ctx.reply(
-    `✅ Додано до ${kid.name} (#${row.id})`,
-    Markup.inlineKeyboard([
-      [Markup.button.callback('🗑 Видалити цей малюнок', `deldraw:${row.id}`)],
-      [Markup.button.callback(`👧 ${kid.name}`, `kid:${kid.id}`), Markup.button.callback('👧 Інша дитина', 'kids')],
-    ])
-  );
+  return ctx.reply(`✅ Додано до ${kid.name} (#${row.id})\nЛежить боком? Поверни кнопками ↺ ↻`, drawingKeyboard(row.id, kid));
 }
 
 // ---------- Бот ----------
@@ -292,7 +313,25 @@ export function createBot(token) {
     if (removed) await removeFiles([removed.filename]);
     await ctx.answerCbQuery(removed ? `🗑 Малюнок #${ctx.match[1]} видалено` : 'Його вже видалено');
     if (ctx.match[2]) return sendDrawingsPage(ctx, Number(ctx.match[2]), Number(ctx.match[3]));
+    if (ctx.callbackQuery.message?.photo) return ctx.deleteMessage().catch(() => {});
     return ctx.editMessageText(`🗑 Малюнок #${ctx.match[1]} видалено.`).catch(() => {});
+  });
+
+  // rot:id:кут — з повідомлення після завантаження; rot:id:кут:childId:page — зі сторінки малюнків
+  bot.action(/^rot:(\d+):(90|270)(?::(\d+):(\d+))?$/, async (ctx) => {
+    const row = await rotateDrawing(Number(ctx.match[1]), Number(ctx.match[2]));
+    await ctx.answerCbQuery(row ? '🔄 Повернуто' : 'Малюнок уже видалено');
+    if (!row) return;
+    if (ctx.match[3]) return sendDrawingsPage(ctx, Number(ctx.match[3]), Number(ctx.match[4]));
+
+    // Показуємо результат: перший раз замість тексту надсилаємо фото, далі міняємо фото в ньому
+    const kid = await getChild(row.child_id);
+    const photo = { source: path.join(UPLOADS_DIR, row.filename) };
+    const caption = `🔄 ${kid.name} (#${row.id})`;
+    const kb = drawingKeyboard(row.id, kid);
+    if (ctx.callbackQuery.message?.photo) return ctx.editMessageMedia({ type: 'photo', media: photo, caption }, kb);
+    await ctx.deleteMessage().catch(() => {});
+    return ctx.replyWithPhoto(photo, { caption, ...kb });
   });
 
   bot.on('text', async (ctx) => {
