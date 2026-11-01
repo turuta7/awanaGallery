@@ -124,11 +124,15 @@ async function sendDrawingsPage(ctx, childId, page) {
       ? [await ctx.telegram.sendPhoto(chatId, media[0].media, { caption: media[0].caption })]
       : await ctx.telegram.sendMediaGroup(chatId, media);
 
+  // По два малюнки в рядку: 🗑 #N | 🔄 #N
   const rows = [];
-  for (let i = 0; i < drawings.length; i += 5) {
-    const part = drawings.slice(i, i + 5);
-    rows.push(part.map((d) => Markup.button.callback(`🗑 #${d.id}`, `deldraw:${d.id}:${childId}:${page}`)));
-    rows.push(part.map((d) => Markup.button.callback(`↻ #${d.id}`, `rot:${d.id}:90:${childId}:${page}`)));
+  for (let i = 0; i < drawings.length; i += 2) {
+    rows.push(
+      drawings.slice(i, i + 2).flatMap((d) => [
+        Markup.button.callback(`🗑 #${d.id}`, `deldraw:${d.id}:${childId}:${page}`),
+        Markup.button.callback(`🔄 #${d.id}`, `open:${d.id}`),
+      ])
+    );
   }
   const nav = [];
   if (page > 0) nav.push(Markup.button.callback('◀ Новіші', `draws:${childId}:${page - 1}`));
@@ -137,7 +141,7 @@ async function sendDrawingsPage(ctx, childId, page) {
   rows.push([Markup.button.callback(`◀ До ${kid.name}`, `kid:${childId}`)]);
 
   const info = await ctx.reply(
-    `🖼 ${kid.name}: сторінка ${page + 1} з ${pages} · всього ${total}\n🗑 — видалити малюнок, ↻ — повернути за годинниковою стрілкою.`,
+    `🖼 ${kid.name}: сторінка ${page + 1} з ${pages} · всього ${total}\n🗑 — видалити малюнок, 🔄 — відкрити й повернути.`,
     Markup.inlineKeyboard(rows)
   );
   shownPages.set(chatId, [...album.map((m) => m.message_id), info.message_id]);
@@ -307,24 +311,53 @@ export function createBot(token) {
     return showKids(ctx);
   });
 
-  // deldraw:id — з повідомлення після завантаження; deldraw:id:childId:page — зі сторінки малюнків
+  // Видалення малюнка — спершу питаємо окремим повідомленням.
+  // deldraw:id — з малюнка/повідомлення «Додано»; deldraw:id:childId:page — зі сторінки малюнків
   bot.action(/^deldraw:(\d+)(?::(\d+):(\d+))?$/, async (ctx) => {
-    const removed = await deleteDrawing(Number(ctx.match[1]));
-    if (removed) await removeFiles([removed.filename]);
-    await ctx.answerCbQuery(removed ? `🗑 Малюнок #${ctx.match[1]} видалено` : 'Його вже видалено');
-    if (ctx.match[2]) return sendDrawingsPage(ctx, Number(ctx.match[2]), Number(ctx.match[3]));
-    if (ctx.callbackQuery.message?.photo) return ctx.deleteMessage().catch(() => {});
-    return ctx.editMessageText(`🗑 Малюнок #${ctx.match[1]} видалено.`).catch(() => {});
+    await ctx.answerCbQuery();
+    const [, id, childId, page] = ctx.match;
+    // Після видалення: оновити сторінку малюнків або прибрати повідомлення, з якого видаляли
+    const then = childId ? `${childId}:${page}` : `m${ctx.callbackQuery.message.message_id}`;
+    return ctx.reply(
+      `Видалити малюнок #${id}? Це не можна скасувати.`,
+      Markup.inlineKeyboard([[Markup.button.callback('🗑 Так, видалити', `deldraw!:${id}:${then}`), Markup.button.callback('Скасувати', 'delcancel')]])
+    );
   });
 
-  // rot:id:кут — з повідомлення після завантаження; rot:id:кут:childId:page — зі сторінки малюнків
-  bot.action(/^rot:(\d+):(90|270)(?::(\d+):(\d+))?$/, async (ctx) => {
+  bot.action(/^deldraw!:(\d+):(?:m(\d+)|(\d+):(\d+))$/, async (ctx) => {
+    const [, id, sourceMsg, childId, page] = ctx.match;
+    const removed = await deleteDrawing(Number(id));
+    if (removed) await removeFiles([removed.filename]);
+    await ctx.answerCbQuery(removed ? `🗑 Малюнок #${id} видалено` : 'Його вже видалено');
+    await ctx.deleteMessage().catch(() => {});
+    if (childId) return sendDrawingsPage(ctx, Number(childId), Number(page));
+    await ctx.telegram.deleteMessage(ctx.chat.id, Number(sourceMsg)).catch(() => {});
+    return ctx.reply(`🗑 Малюнок #${id} видалено.`);
+  });
+
+  bot.action('delcancel', async (ctx) => {
+    await ctx.answerCbQuery('Скасовано');
+    return ctx.deleteMessage().catch(() => {});
+  });
+
+  // Окремий малюнок зі сторінки малюнків — з кнопками повороту й видалення
+  bot.action(/^open:(\d+)$/, async (ctx) => {
+    const d = await getDrawing(Number(ctx.match[1]));
+    await ctx.answerCbQuery(d ? '' : 'Малюнок уже видалено');
+    if (!d) return;
+    const kid = await getChild(d.child_id);
+    return ctx.replyWithPhoto(d.file_id || { source: path.join(UPLOADS_DIR, d.filename) }, {
+      caption: `🖼 ${kid.name} (#${d.id})`,
+      ...drawingKeyboard(d.id, kid),
+    });
+  });
+
+  bot.action(/^rot:(\d+):(90|270)$/, async (ctx) => {
     const row = await rotateDrawing(Number(ctx.match[1]), Number(ctx.match[2]));
     await ctx.answerCbQuery(row ? '🔄 Повернуто' : 'Малюнок уже видалено');
     if (!row) return;
-    if (ctx.match[3]) return sendDrawingsPage(ctx, Number(ctx.match[3]), Number(ctx.match[4]));
 
-    // Показуємо результат: перший раз замість тексту надсилаємо фото, далі міняємо фото в ньому
+    // Показуємо результат: якщо це текст «Додано» — замінюємо його фото, якщо вже фото — міняємо картинку
     const kid = await getChild(row.child_id);
     const photo = { source: path.join(UPLOADS_DIR, row.filename) };
     const caption = `🔄 ${kid.name} (#${row.id})`;
