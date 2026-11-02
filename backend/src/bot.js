@@ -15,6 +15,7 @@ import {
   getDrawing,
   listChildren,
   logoutBotUser,
+  renameChild,
   replaceDrawingFile,
   setCurrentChild,
 } from './db.js';
@@ -70,6 +71,7 @@ async function kidsKeyboard() {
 const kidKeyboard = (id) =>
   Markup.inlineKeyboard([
     [Markup.button.callback('🖼 Малюнки', `draws:${id}:0`)],
+    [Markup.button.callback('✏️ Перейменувати', `renkid:${id}`)],
     [Markup.button.callback('❌ Видалити дитину', `delkid:${id}`)],
     [Markup.button.callback('◀ До списку дітей', 'kids')],
   ]);
@@ -218,7 +220,8 @@ async function saveDrawing(ctx, { fileId, fileUniqueId, ext, width, height }) {
 
 // ---------- Бот ----------
 
-const awaitingName = new Set(); // userId, від якого чекаємо ім'я нової дитини
+// userId → від кого чекаємо ім'я: null — нова дитина, id — перейменування цієї дитини
+const awaitingName = new Map();
 
 export function createBot(token) {
   const bot = new Telegraf(token);
@@ -256,7 +259,7 @@ export function createBot(token) {
   bot.command('add', async (ctx) => {
     const name = ctx.payload.trim();
     if (!name) {
-      awaitingName.add(ctx.from.id);
+      awaitingName.set(ctx.from.id, null);
       return ctx.reply('Напиши ім’я дитини:');
     }
     const kid = await createChild(name);
@@ -275,7 +278,7 @@ export function createBot(token) {
 
   bot.action('newkid', async (ctx) => {
     await ctx.answerCbQuery();
-    awaitingName.add(ctx.from.id);
+    awaitingName.set(ctx.from.id, null);
     return ctx.reply('Напиши ім’я дитини:');
   });
 
@@ -287,6 +290,14 @@ export function createBot(token) {
   bot.action(/^draws:(\d+):(\d+)$/, async (ctx) => {
     await ctx.answerCbQuery();
     return sendDrawingsPage(ctx, Number(ctx.match[1]), Number(ctx.match[2]));
+  });
+
+  bot.action(/^renkid:(\d+)$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    const kid = await getChild(Number(ctx.match[1]));
+    if (!kid) return showKids(ctx, true);
+    awaitingName.set(ctx.from.id, kid.id);
+    return ctx.reply(`Напиши нове ім’я для ${kid.name}:`);
   });
 
   bot.action(/^delkid:(\d+)$/, async (ctx) => {
@@ -369,8 +380,15 @@ export function createBot(token) {
 
   bot.on('text', async (ctx) => {
     if (!awaitingName.has(ctx.from.id)) return showKids(ctx);
+    const renameId = awaitingName.get(ctx.from.id);
     awaitingName.delete(ctx.from.id);
     const name = ctx.message.text.trim().slice(0, 100);
+    if (renameId) {
+      const kid = await renameChild(renameId, name);
+      if (!kid) return showKids(ctx);
+      await ctx.reply(`✏️ Тепер це ${kid.name}`);
+      return openKid(ctx, kid.id);
+    }
     const kid = await createChild(name);
     return openKid(ctx, kid.id);
   });

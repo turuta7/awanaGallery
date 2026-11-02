@@ -20,6 +20,11 @@ export async function createChild(name) {
   return row;
 }
 
+export async function renameChild(id, name) {
+  const [row] = await db('children').where({ id }).update({ name }).returning('*');
+  return row ?? null;
+}
+
 export const getChild = (id) => db('children').where({ id }).first();
 
 export function listChildren() {
