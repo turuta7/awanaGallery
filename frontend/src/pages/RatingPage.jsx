@@ -27,10 +27,16 @@ const DRAWINGS_TITLE = {
   drawings: 'Усі малюнки за період',
 };
 
-// У режимі «Один малюнок» однакові лайки найкращого малюнка = спільне місце (1, 1, 2…)
-function places(children, by) {
+// Місця за головним показником: однаковий результат = спільне місце (1, 1, 2…).
+// Хто має 0 — без місця, в кінці списку за алфавітом
+function ranked(children, by) {
+  const scored = children.filter((c) => c[by] > 0);
+  const zero = children.filter((c) => !(c[by] > 0)).sort((a, b) => a.name.localeCompare(b.name, 'uk'));
   let place = 0;
-  return children.map((c, i) => (by !== 'best' || i === 0 || c.best !== children[i - 1].best ? ++place : place));
+  return [
+    ...scored.map((c, i) => ({ ...c, place: i > 0 && c[by] === scored[i - 1][by] ? place : ++place })),
+    ...zero.map((c) => ({ ...c, place: null })),
+  ];
 }
 
 const href = (period, day, by) => `#/rating/${period}${day ? `/${day}` : ''}${by !== 'likes' ? `?by=${by}` : ''}`;
@@ -47,7 +53,7 @@ export default function RatingPage({ period, day: dayParam, by }) {
     [period, day, by, waiting]
   );
   const setDrawings = (fn) => setRating((r) => r && { ...r, drawings: fn(r.drawings) });
-  const place = rating ? places(rating.children, rating.by) : [];
+  const kids = rating ? ranked(rating.children, rating.by) : [];
 
   return (
     <>
@@ -86,9 +92,9 @@ export default function RatingPage({ period, day: dayParam, by }) {
       {rating ? (
         <>
           <ol className="ranking">
-            {rating.children.map((c, i) => (
+            {kids.map((c) => (
               <li key={c.id}>
-                <span className="place">{MEDALS[place[i] - 1] ?? place[i]}</span>
+                <span className="place">{c.place ? MEDALS[c.place - 1] ?? c.place : '—'}</span>
                 <a href={`#/kids/${c.id}`} className="kid-name">{c.name}</a>
                 <span className={by === 'drawings' ? 'metric main' : 'metric'} title="Малюнків">🖼 {c.drawings}</span>
                 <span className={by === 'best' ? 'metric main' : 'metric'} title="Лайків у найкращого малюнка">⭐ {c.best}</span>
